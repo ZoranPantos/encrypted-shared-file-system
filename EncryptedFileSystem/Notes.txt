@@ -1,0 +1,8 @@
+﻿CA
+
+	> CA will automatically create its own directory infrastructure if one does not exist. All that is required is to instantiate
+	an object of type CertificationAuthority.
+
+	> User upon registration will create its own pair of keys and then send CA its public key and receive certificate back
+
+FILE SYSTEM

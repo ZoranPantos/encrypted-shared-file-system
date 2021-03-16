@@ -11,8 +11,8 @@ namespace EncryptedFileSystem
         
         /*Sifruje se string "CA" privatnim kljucem i sifrat se sacuva. Onaj ko povuce ovaj sertifikat,
         moze povuci i javni kljuc CA tijela i desifrovati sifrat. Ako dobije string "CA", onda je to potvrda
-        da je sertifikat izdan od strane datog CA tijela.*/
-        public string IssuerNameCipher { get; set; }
+        da je sertifikat izdan od strane datog CA tijela.*/ //RSA ne moze tako, to je onda digitalni potpis - vidjeti drugi nacin
+        //public string IssuerNameCipher { get; set; }
 
         public string Subject { get; set; }
         public DateTime Expiration { get; set; }
@@ -29,8 +29,8 @@ namespace EncryptedFileSystem
             writer.WriteLine(Algorithm);
             writer.WriteLine("\nISSUER");
             writer.WriteLine(Issuer);
-            writer.WriteLine("\nISSUER NAME CIPHER");
-            writer.WriteLine(IssuerNameCipher);
+            //writer.WriteLine("\nISSUER NAME CIPHER");
+            //writer.WriteLine(IssuerNameCipher);
             writer.WriteLine("\nSUBJECT");
             writer.WriteLine(Subject);
             writer.WriteLine("\nEXPIRATION");
@@ -57,8 +57,8 @@ namespace EncryptedFileSystem
                     Algorithm = reader.ReadLine();
                 else if (line.Equals("ISSUER"))
                     Issuer = reader.ReadLine();
-                else if (line.Equals("ISSUER NAME CIPHER"))
-                    IssuerNameCipher = reader.ReadLine();
+                //else if (line.Equals("ISSUER NAME CIPHER"))
+                    //IssuerNameCipher = reader.ReadLine();
                 else if (line.Equals("SUBJECT"))
                     Subject = reader.ReadLine();
                 else if (line.Equals("EXPIRATION"))
@@ -71,7 +71,7 @@ namespace EncryptedFileSystem
             return result;
         }
 
-        //For testing purposes
+        //TESTING
         public void PrintToConsole()
         {
             Console.WriteLine("ID");
@@ -86,9 +86,9 @@ namespace EncryptedFileSystem
             Console.WriteLine(Issuer);
             Console.WriteLine();
 
-            Console.WriteLine("ISSUER NAME CIPHER");
-            Console.WriteLine(IssuerNameCipher);
-            Console.WriteLine();
+            //Console.WriteLine("ISSUER NAME CIPHER");
+            //Console.WriteLine(IssuerNameCipher);
+            //Console.WriteLine();
 
             Console.WriteLine("SUBJECT");
             Console.WriteLine(Subject);

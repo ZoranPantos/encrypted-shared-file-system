@@ -72,5 +72,31 @@ namespace EncryptedFileSystem.CryptoAlgorithms
             byte[] decryptedCipher = csp3.Decrypt(cipher, false);
             return decryptedCipher;
         }
+
+        //RSA ne pruza nacin da se enkriptuje sa privatnim kljucem a dekriptuje sa javnim. To je digitalni potpis.
+        public byte[] CustomKeyEncrypt(string plainText, string xmlKey)
+        {
+            RSACryptoServiceProvider provider = new RSACryptoServiceProvider();
+            byte[] plainTextBytes = Encoding.Unicode.GetBytes(plainText);
+
+            StringReader reader = new StringReader(xmlKey);
+            XmlSerializer serializer = new XmlSerializer(typeof(RSAParameters));
+            RSAParameters key = (RSAParameters)serializer.Deserialize(reader);
+
+            provider.ImportParameters(key);
+            return provider.Encrypt(plainTextBytes, false); //check what this false means
+        }
+
+        public byte[] CustomKeyDecrypt(byte[] cipher, string xmlKey)
+        {
+            RSACryptoServiceProvider provider = new RSACryptoServiceProvider();
+
+            StringReader reader = new StringReader(xmlKey);
+            XmlSerializer serializer = new XmlSerializer(typeof(RSAParameters));
+            RSAParameters key = (RSAParameters)serializer.Deserialize(reader);
+
+            provider.ImportParameters(key);
+            return provider.Decrypt(cipher, false);
+        }
     }
 }
