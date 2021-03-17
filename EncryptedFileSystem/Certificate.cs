@@ -20,7 +20,7 @@ namespace EncryptedFileSystem
 
         public void Save(string path)
         {
-            StreamWriter writer = new StreamWriter(path);
+            StreamWriter writer = new StreamWriter(path); 
 
             writer.WriteLine("----- DIGITAL CERTIFICATE -----");
             writer.WriteLine("\nID");

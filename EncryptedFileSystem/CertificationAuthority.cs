@@ -37,7 +37,7 @@ namespace EncryptedFileSystem
         //Initial setup: generate and save public/private RSA keys and CA certificate
         public void FirstTimeBoot()
         {
-            Directory.CreateDirectory(@"Data\CA");
+            Directory.CreateDirectory(@"Data\CA"); 
 
             RSA rsa = new RSA();
 
@@ -193,6 +193,14 @@ namespace EncryptedFileSystem
             return crlIds;
         }
 
+        public string GetCrlData()
+        {
+            StreamReader reader = new StreamReader(@"Data\CA\crl.txt");
+            string data = reader.ReadToEnd();
+            reader.Close();
+            return data;
+        }
+
         public Certificate IssueCertificate(User user)
         {
             Certificate certificate = new Certificate();
@@ -209,6 +217,13 @@ namespace EncryptedFileSystem
             AddActiveCert(certificate.Id + " " + certificate.Subject + " " + certificate.Expiration.ToString());
 
             return certificate;
+        }
+
+        public Certificate GetCaCertificate()
+        {
+            Certificate result = new Certificate();
+            result.Load(@"Data\CA\ca_certificate.txt");
+            return result;
         }
     }
 }
