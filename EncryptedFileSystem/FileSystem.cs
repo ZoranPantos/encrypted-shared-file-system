@@ -55,7 +55,7 @@ namespace EncryptedFileSystem
                 User user = new User();
                 user.Username = username;
 
-                Directory.CreateDirectory(path + @"\PersonlaFileHashes");
+                Directory.CreateDirectory(path + @"\PersonalFileHashes");
                 Directory.CreateDirectory(path + @"\Keys");
 
                 SHA1Managed sha1 = new SHA1Managed();
@@ -96,6 +96,7 @@ namespace EncryptedFileSystem
 
             if (!Directory.Exists(path))
                 Console.WriteLine("User with this username does not exist");
+            else
             {
 
                 //2. hash the password
@@ -152,6 +153,30 @@ namespace EncryptedFileSystem
                 Console.WriteLine("SYMMETRIC KEY\n");
                 Console.WriteLine(currentUser.SymetricKey);
                 Console.WriteLine();
+            }
+        }
+
+        //---------------------------------------------OPERATIONS-------------------------------------------------------------
+
+        //filename has an extension
+        public void CreateFile(string filename, string content = "")
+        {
+            string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
+
+            if (filename.Contains(@"\") && !Directory.Exists(Path.GetDirectoryName(filePath)))
+                Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+
+            CryptoAlgorithms.RC4 rc4 = new CryptoAlgorithms.RC4();
+            string cipherContent = rc4.RC4algo(content, currentUser.SymetricKey);
+
+            using (var writer = new StreamWriter(filePath))
+            {
+                writer.Write(cipherContent);
+            }
+
+            using (var writer = new StreamWriter(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + Path.GetFileName(filePath)))
+            {
+                writer.WriteLine(cipherContent);
             }
         }
     }
