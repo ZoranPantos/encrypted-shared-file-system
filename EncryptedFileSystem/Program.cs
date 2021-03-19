@@ -15,8 +15,16 @@ namespace EncryptedFileSystem
             CertificationAuthority ca = new CertificationAuthority();
             FileSystem fs = new FileSystem(ca);
 
-            fs.Register("someuser2", "password12346");
+            fs.Login("userA", "password1234");
+            fs.PrintCurrentUser();
 
+            /*fs.Register("userA", "password1234");
+            fs.Register("userB", "mydog");
+            fs.Register("userC", "breaking_bad");*/
+        }
+
+        static void Tests()
+        {
             /*SHA1Managed sha1 = new SHA1Managed();
 
             byte[] passwordBytes = Encoding.Unicode.GetBytes("password1234");

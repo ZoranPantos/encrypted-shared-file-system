@@ -57,8 +57,6 @@ namespace EncryptedFileSystem
             certificate.Algorithm = "RSA";
             certificate.Issuer = "CA";
 
-            //certificate.IssuerNameCipher = Encoding.Unicode.GetString(rsa.Encrypt("CA"));
-
             certificate.Subject = "CA";
             certificate.Expiration = DateTime.Parse("01/01/2100 12:00:00");
             certificate.SubjectPublicKey = rsa.PublicKeyToXmlString();
@@ -225,5 +223,7 @@ namespace EncryptedFileSystem
             result.Load(@"Data\CA\ca_certificate.txt");
             return result;
         }
+
+        
     }
 }
