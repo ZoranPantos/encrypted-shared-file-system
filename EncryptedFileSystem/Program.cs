@@ -15,14 +15,17 @@ namespace EncryptedFileSystem
             CertificationAuthority ca = new CertificationAuthority();
             FileSystem fs = new FileSystem(ca);
 
-            fs.Register("userA", "password1234");
-            fs.Register("userB", "mydog");
-            fs.Register("userC", "breaking_bad");
-
+            //fs.Register("userA", "password1234");
             fs.Login("userA", "password1234");
-            fs.PrintCurrentUser();
 
-            fs.CreateFile(@"test.txt", "dasfghjkk");
+            //fs.CreateFile(@"test.txt", "The content of the file named 'test'.");
+
+            //fs.OpenFile("test.txt");
+            //fs.DeletePersonalFile("test.txt");
+            //fs.MoveFile("stars.jpg");
+            //fs.OpenFile("text_file.txt");
+
+            fs.OpenFile("stars.jpg");
         }
 
         static void Tests()

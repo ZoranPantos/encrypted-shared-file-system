@@ -4,6 +4,8 @@ using System.IO;
 using System.Text;
 using System.Security.Cryptography;
 using System.Linq;
+using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace EncryptedFileSystem
 {
@@ -161,23 +163,169 @@ namespace EncryptedFileSystem
         //filename has an extension
         public void CreateFile(string filename, string content = "")
         {
+            if (currentUser != null)
+            {
+                string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
+
+                if (filename.Contains(@"\") && !Directory.Exists(Path.GetDirectoryName(filePath)))
+                    Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+
+                CryptoAlgorithms.RC4 rc4 = new CryptoAlgorithms.RC4();
+                string cipherContent = rc4.RC4algo(content, currentUser.SymetricKey);
+
+                using (var writer = new StreamWriter(filePath))
+                {
+                    writer.Write(cipherContent);
+                }
+
+                using (var writer = new StreamWriter(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + Path.GetFileName(filePath)))
+                {
+                    writer.WriteLine(cipherContent);
+                }
+            }
+            else
+                Console.WriteLine("Login required");
+        }
+
+        //Current supported file type: .txt
+        //Add support to other file types
+        public void OpenFile(string filename)
+        {
+            if (currentUser != null)
+            {
+                string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
+
+                if (filename.Contains(".txt"))
+                {
+                    //integrity check
+                    string originalEncryptedData = File.ReadAllText(filePath).Replace("\r\n", "");
+                    string backupEncryptedData = File.ReadAllText(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename).Replace("\r\n", "");
+
+                    if (!originalEncryptedData.Equals(backupEncryptedData))
+                    {
+                        Console.WriteLine("File integrity compromised");
+                        return;
+                    }
+
+                    CryptoAlgorithms.RC4 rc4 = new CryptoAlgorithms.RC4();
+                    string originalPlaintextData = rc4.RC4algo(originalEncryptedData, currentUser.SymetricKey);
+
+                    File.WriteAllText(filePath, originalPlaintextData);
+
+                    new Process
+                    {
+                        StartInfo = new ProcessStartInfo(filePath)
+                        {
+                            UseShellExecute = true
+                        }
+                    }.Start();
+
+                    Console.WriteLine("Press enter to continue...");
+                    Console.ReadLine();
+
+                    string newCipher = rc4.RC4algo(File.ReadAllText(filePath), currentUser.SymetricKey);
+                    File.WriteAllText(filePath, newCipher);
+                    File.WriteAllText(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename, newCipher);
+                }
+                else
+                    OpenNonTextFile(filename);
+            }
+            else
+                Console.WriteLine("Login required");
+        }
+
+        public void DeletePersonalFile(string filename)
+        {
+            if (currentUser != null)
+            {
+                string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
+
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                    File.Delete(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename);
+                }
+                else
+                    Console.WriteLine("File not found");
+            }
+            else
+                Console.WriteLine("Login required");
+        }
+
+        //Tried with UTF8 encoding so that last bytes are not changed. Not working correctly.
+        //Can't encrypt/decrypt with RSA since file size is too big.
+        //When converting bytes to a string and then back, I don't get the original byte size when using Encoding.
+        //When using Convert.FromBase64, I get the original byte size, but RC4 decrypted string to bytes contains invalid stuff
+
+        //TO DO: Must try another symmetric encryption algorithm with bytes or find another way
+        public void CreateNonTextFile(string filename, byte[] fileBytes)
+        {
+            /*Regex regex = new Regex("\\.[a-z]+");
+            MatchCollection matches = regex.Matches(filename);
+
+            if (matches.Count > 0)
+                filename = filename.Replace(matches.Last().ToString(), "");*/
+
+            //File will be saved with an extension
+
+            string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
+            CryptoAlgorithms.RC4 rc4 = new CryptoAlgorithms.RC4();
+
+            string fileBytesString = Encoding.UTF8.GetString(fileBytes);
+            string fileBytesCipherString = rc4.RC4algo(fileBytesString, currentUser.SymetricKey);
+            byte[] fileBytesCipherBytes = Encoding.UTF8.GetBytes(fileBytesCipherString);
+
+            File.WriteAllBytes(filePath, fileBytesCipherBytes);
+            File.WriteAllBytes(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename, fileBytesCipherBytes);
+
+            File.Delete(filename);
+        }
+
+        public void OpenNonTextFile(string filename)
+        {
             string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
 
-            if (filename.Contains(@"\") && !Directory.Exists(Path.GetDirectoryName(filePath)))
-                Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+            //open and decrypt
+            byte[] originalEncryptedBytes = File.ReadAllBytes(filePath);
+            byte[] backupEncryptedBytes = File.ReadAllBytes(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename);
+
+            Console.WriteLine("original and backup encrypted bytes comparison: " + originalEncryptedBytes.SequenceEqual(backupEncryptedBytes));
+            if (!originalEncryptedBytes.SequenceEqual(backupEncryptedBytes))
+            {
+                Console.WriteLine("File integrity compromised");
+                return;
+            }
+            else
+                Console.WriteLine("File integrity intact");
 
             CryptoAlgorithms.RC4 rc4 = new CryptoAlgorithms.RC4();
-            string cipherContent = rc4.RC4algo(content, currentUser.SymetricKey);
+            string originalEncryptedBytesString = Encoding.UTF8.GetString(originalEncryptedBytes);
+            string decryptedByteString = rc4.RC4algo(originalEncryptedBytesString, currentUser.SymetricKey);
+            byte[] originalFileBytes = Encoding.UTF8.GetBytes(decryptedByteString);
 
-            using (var writer = new StreamWriter(filePath))
-            {
-                writer.Write(cipherContent);
-            }
+            File.WriteAllBytes(filePath, originalFileBytes);
 
-            using (var writer = new StreamWriter(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + Path.GetFileName(filePath)))
+            //show
+
+            //encrypt and save
+        }
+
+        //WARNING: When creating a new file manualy, do not type .txt by hand in the file name
+        public void MoveFile(string filename)
+        {
+            string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
+
+            if (File.Exists(filename))
             {
-                writer.WriteLine(cipherContent);
+                if (filename.Contains(".txt"))
+                    CreateFile(filename, File.ReadAllText(filename));
+                else
+                    CreateNonTextFile(filename, File.ReadAllBytes(filename));
+
+                File.Delete(filename);
             }
+            else
+                Console.WriteLine("File not found");
         }
     }
 }
