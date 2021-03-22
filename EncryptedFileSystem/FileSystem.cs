@@ -86,6 +86,11 @@ namespace EncryptedFileSystem
                     writer.Write(user.SymetricKey);
                 }
 
+                Aes aes = Aes.Create();
+
+                File.WriteAllBytes(path + @"\Keys\aes_symmetric_key", aes.Key);
+                File.WriteAllBytes(path + @"\Keys\aes_iv", aes.IV);
+
                 Certificate certificate = ca.IssueCertificate(user);
                 certificate.Save(@"Data\FileSystem\Certificates\" + user.Username + "_certificate.txt");
             }
@@ -93,26 +98,20 @@ namespace EncryptedFileSystem
 
         public void Login(string username, string password)
         {
-            //1. check if user exists
             string path = @"Data\FileSystem\Users\" + username;
 
             if (!Directory.Exists(path))
                 Console.WriteLine("User with this username does not exist");
             else
             {
-
-                //2. hash the password
                 SHA1Managed sha1 = new SHA1Managed();
                 byte[] passwordBytes = Encoding.Unicode.GetBytes(password);
                 byte[] passwordHashBytes = sha1.ComputeHash(passwordBytes);
 
-                //3. load original password hash
                 byte[] originalPasswordHash = File.ReadAllBytes(path + @"\password_hash");
 
-                //4. compare the two
                 if (originalPasswordHash.SequenceEqual(passwordHashBytes))
                 {
-                    //5. check if certificate is valid
                     Certificate certificate = new Certificate();
                     certificate.Load(@"Data\FileSystem\Certificates\" + username + "_certificate.txt");
                     string crlData = ca.GetCrlData();
@@ -126,7 +125,9 @@ namespace EncryptedFileSystem
                             Username = username,
                             PrivateXmlKey = File.ReadAllText(path + @"\Keys\private_key.txt"),
                             PublicXmlKey = File.ReadAllText(path + @"\Keys\public_key.txt"),
-                            SymetricKey = File.ReadAllText(path + @"\Keys\symmetric_key.txt")
+                            SymetricKey = File.ReadAllText(path + @"\Keys\symmetric_key.txt"),
+                            AesSymetricKey = File.ReadAllBytes(path + @"\Keys\aes_symmetric_key"),
+                            AesIv = File.ReadAllBytes(path + @"\Keys\aes_iv")
                         };
                     }
                 }
@@ -187,17 +188,20 @@ namespace EncryptedFileSystem
                 Console.WriteLine("Login required");
         }
 
-        //Current supported file type: .txt
-        //Add support to other file types
         public void OpenFile(string filename)
         {
             if (currentUser != null)
             {
                 string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
 
+                if (!File.Exists(filePath))
+                {
+                    Console.WriteLine("File not found");
+                    return;
+                }
+
                 if (filename.Contains(".txt"))
                 {
-                    //integrity check
                     string originalEncryptedData = File.ReadAllText(filePath).Replace("\r\n", "");
                     string backupEncryptedData = File.ReadAllText(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename).Replace("\r\n", "");
 
@@ -252,66 +256,60 @@ namespace EncryptedFileSystem
                 Console.WriteLine("Login required");
         }
 
-        //Tried with UTF8 encoding so that last bytes are not changed. Not working correctly.
-        //Can't encrypt/decrypt with RSA since file size is too big.
-        //When converting bytes to a string and then back, I don't get the original byte size when using Encoding.
-        //When using Convert.FromBase64, I get the original byte size, but RC4 decrypted string to bytes contains invalid stuff
-
-        //TO DO: Must try another symmetric encryption algorithm with bytes or find another way
         public void CreateNonTextFile(string filename, byte[] fileBytes)
         {
-            /*Regex regex = new Regex("\\.[a-z]+");
-            MatchCollection matches = regex.Matches(filename);
-
-            if (matches.Count > 0)
-                filename = filename.Replace(matches.Last().ToString(), "");*/
-
-            //File will be saved with an extension
-
             string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
-            CryptoAlgorithms.RC4 rc4 = new CryptoAlgorithms.RC4();
+            
+            CryptoAlgorithms.AES aesWrapper = new CryptoAlgorithms.AES();
 
-            string fileBytesString = Encoding.UTF8.GetString(fileBytes);
-            string fileBytesCipherString = rc4.RC4algo(fileBytesString, currentUser.SymetricKey);
-            byte[] fileBytesCipherBytes = Encoding.UTF8.GetBytes(fileBytesCipherString);
+            string fileString = Convert.ToBase64String(fileBytes);
+            byte[] encryptedBytes = aesWrapper.Encrypt(fileString, currentUser.AesSymetricKey, currentUser.AesIv);
 
-            File.WriteAllBytes(filePath, fileBytesCipherBytes);
-            File.WriteAllBytes(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename, fileBytesCipherBytes);
-
-            File.Delete(filename);
+            File.WriteAllBytes(filePath, encryptedBytes);
+            File.WriteAllBytes(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename, encryptedBytes);
         }
 
         public void OpenNonTextFile(string filename)
         {
             string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
 
-            //open and decrypt
-            byte[] originalEncryptedBytes = File.ReadAllBytes(filePath);
-            byte[] backupEncryptedBytes = File.ReadAllBytes(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename);
+            CryptoAlgorithms.AES aesWrapper = new CryptoAlgorithms.AES();
 
-            Console.WriteLine("original and backup encrypted bytes comparison: " + originalEncryptedBytes.SequenceEqual(backupEncryptedBytes));
-            if (!originalEncryptedBytes.SequenceEqual(backupEncryptedBytes))
+            byte[] encryptedBytes = File.ReadAllBytes(filePath);
+            byte[] backupBytes = File.ReadAllBytes(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename);
+
+            if (!encryptedBytes.SequenceEqual(backupBytes))
             {
                 Console.WriteLine("File integrity compromised");
                 return;
             }
-            else
-                Console.WriteLine("File integrity intact");
 
-            CryptoAlgorithms.RC4 rc4 = new CryptoAlgorithms.RC4();
-            string originalEncryptedBytesString = Encoding.UTF8.GetString(originalEncryptedBytes);
-            string decryptedByteString = rc4.RC4algo(originalEncryptedBytesString, currentUser.SymetricKey);
-            byte[] originalFileBytes = Encoding.UTF8.GetBytes(decryptedByteString);
+            string cipherString = aesWrapper.Decrypt(encryptedBytes, currentUser.AesSymetricKey, currentUser.AesIv);
+            byte[] originalBytes = Convert.FromBase64String(cipherString);
 
-            File.WriteAllBytes(filePath, originalFileBytes);
+            File.WriteAllBytes(filePath, originalBytes);
 
-            //show
+            new Process
+            {
+                StartInfo = new ProcessStartInfo(filePath)
+                {
+                    UseShellExecute = true
+                }
+            }.Start();
 
-            //encrypt and save
+            Console.WriteLine("Press enter to continue...");
+            Console.ReadLine();
+
+            byte[] fileBytes = File.ReadAllBytes(filePath);
+            string fileString = Convert.ToBase64String(fileBytes);
+            byte[] newEncryptedBytes = aesWrapper.Encrypt(fileString, currentUser.AesSymetricKey, currentUser.AesIv);
+
+            File.WriteAllBytes(filePath, newEncryptedBytes);
+            File.WriteAllBytes(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename, newEncryptedBytes);
         }
 
         //WARNING: When creating a new file manualy, do not type .txt by hand in the file name
-        public void MoveFile(string filename)
+        public void UploadFile(string filename)
         {
             string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
 
@@ -322,10 +320,39 @@ namespace EncryptedFileSystem
                 else
                     CreateNonTextFile(filename, File.ReadAllBytes(filename));
 
-                File.Delete(filename);
+                //File.Delete(filename);
             }
             else
                 Console.WriteLine("File not found");
+        }
+
+        public void DownloadFile(string filename)
+        {
+            string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
+
+            if (!File.Exists(filePath))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+
+            if (filename.Contains(".txt"))
+            {
+                CryptoAlgorithms.RC4 rc4 = new CryptoAlgorithms.RC4();
+                string originalEncryptedData = File.ReadAllText(filePath);
+                string originalPlaintextData = rc4.RC4algo(originalEncryptedData, currentUser.SymetricKey);
+                File.WriteAllText(filename, originalPlaintextData);
+            }
+            else
+            {
+                CryptoAlgorithms.AES aesWrapper = new CryptoAlgorithms.AES();
+                byte[] encryptedBytes = File.ReadAllBytes(filePath);
+                string encryptedString = Convert.ToBase64String(encryptedBytes);
+                string cipherString = aesWrapper.Decrypt(encryptedBytes, currentUser.AesSymetricKey, currentUser.AesIv);
+                byte[] originalBytes = Convert.FromBase64String(cipherString);
+                File.WriteAllBytes(filename, originalBytes);
+            }
+
         }
     }
 }

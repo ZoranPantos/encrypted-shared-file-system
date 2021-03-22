@@ -17,15 +17,19 @@ namespace EncryptedFileSystem
 
             //fs.Register("userA", "password1234");
             fs.Login("userA", "password1234");
+            fs.CreateFile("somefile.txt", "somerville");
 
-            //fs.CreateFile(@"test.txt", "The content of the file named 'test'.");
+            //fs.OpenNonTextFile("stars.jpg");
 
-            //fs.OpenFile("test.txt");
-            //fs.DeletePersonalFile("test.txt");
-            //fs.MoveFile("stars.jpg");
-            //fs.OpenFile("text_file.txt");
+            //fs.UploadFile("jordan.pdf");
+            //fs.UploadFile("stars.jpg");
 
-            fs.OpenFile("stars.jpg");
+            //fs.OpenFile("jodrdan.pdf");
+
+            //fs.DownloadFile("test.txt");
+
+            fs.DownloadFile("jordan.pdf");
+            fs.DownloadFile("stars.jpg");
         }
 
         static void Tests()
