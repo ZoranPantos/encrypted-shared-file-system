@@ -12,11 +12,13 @@ namespace EncryptedFileSystem
     public class FileSystem
     {
         private CertificationAuthority ca;
+        private SharingService sharingService;
         public User currentUser { get; set; }
 
         public FileSystem(CertificationAuthority ca)
         {
             this.ca = ca;
+            sharingService = new SharingService();
 
             if (!Directory.Exists(@"Data\FileSystem"))
                 FirstTimeBoot();
@@ -26,7 +28,7 @@ namespace EncryptedFileSystem
 
         private void FirstTimeBoot()
         {
-            Directory.CreateDirectory(@"Data\FileSystem\Users\Shared");
+            Directory.CreateDirectory(@"Data\FileSystem\Users\Shared\EncryptedSymKeys");
             Directory.CreateDirectory(@"Data\FileSystem\Certificates");
             File.Create(@"Data\FileSystem\Users\shared_connections.txt").Close();
 
@@ -273,6 +275,12 @@ namespace EncryptedFileSystem
         {
             string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
 
+            if (!File.Exists(filePath))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+
             CryptoAlgorithms.AES aesWrapper = new CryptoAlgorithms.AES();
 
             byte[] encryptedBytes = File.ReadAllBytes(filePath);
@@ -352,7 +360,54 @@ namespace EncryptedFileSystem
                 byte[] originalBytes = Convert.FromBase64String(cipherString);
                 File.WriteAllBytes(filename, originalBytes);
             }
+        }
 
+        //__________________________________________________________________________________________________________________
+
+        //TEST
+        public void ShareFile(string filename, string partaker)
+        {
+            sharingService.ShareFile(filename, currentUser, partaker);
+        }
+
+        //TEST for printing decrypted symmetric key from another user that shared a file with me
+        public void PrintDecrypted()
+        {
+            CryptoAlgorithms.RSA rsa = new CryptoAlgorithms.RSA();
+            rsa.XmlStringToPublicKey(currentUser.PublicXmlKey);
+            rsa.XmlStringToPrivateKey(currentUser.PrivateXmlKey);
+
+            byte[] cipherKey = File.ReadAllBytes(@"Data\FileSystem\Users\Shared\EncryptedSymKeys\adele_symmetric_key");
+
+            byte[] decryptedBytes = rsa.Decrypt(cipherKey);
+
+            //Ako koristim Convert.ToBase64String NE DADNE ISTI STRING.
+            //Ovako sa Unicode dobijem ZORANSYMMETRIC kako i treba biti
+            Console.WriteLine(Encoding.Unicode.GetString(decryptedBytes));
+        }
+
+        //BUG CAN BE REPRODUCED HERE
+        public void TestRSA()
+        {
+            CryptoAlgorithms.RSA rsa = new CryptoAlgorithms.RSA();
+            string plaintext = "testing rsa from file system";
+
+            rsa.XmlStringToPrivateKey(currentUser.PrivateXmlKey);
+            rsa.XmlStringToPublicKey(currentUser.PublicXmlKey);
+
+            var cipher = rsa.Encrypt(plaintext);
+            
+            //---------HERE----------
+
+            //string cipherString = Encoding.Unicode.GetString(cipher);
+            //byte[] cipherBytes = Encoding.Unicode.GetBytes(cipherString);
+
+            string cipherString = Convert.ToBase64String(cipher);
+            byte[] cipherBytes = Convert.FromBase64String(cipherString);
+
+            //-----------------------
+
+            var decipher = rsa.Decrypt(cipherBytes);
         }
     }
 }
