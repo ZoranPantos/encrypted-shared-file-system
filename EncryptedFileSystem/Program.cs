@@ -1,4 +1,7 @@
-﻿namespace EncryptedFileSystem
+﻿using System.IO;
+using System;
+
+namespace EncryptedFileSystem
 {
     class Program
     {
@@ -7,11 +10,14 @@
             CertificationAuthority ca = new CertificationAuthority();
             FileSystem fs = new FileSystem(ca);
 
-            fs.Login("zoran", "zoran");
-            //fs.CreateFile("zoranfile.txt", "my name is zoran pantos");
-            //fs.ShareFile("zoranfile.txt", "adele");
+            fs.Login("adele", "adele");
+            //fs.OpenSharedTest("forzoky.txt", "adele");
+            fs.OpenPersonalSharedTest("forzoky.txt");
+            
 
-            fs.PrintDecrypted();
+            //fs.PrintDecryptedAES();
+
+            
             //fs.TestRSA();
         }
     }

@@ -364,10 +364,17 @@ namespace EncryptedFileSystem
 
         //__________________________________________________________________________________________________________________
 
-        //TEST
         public void ShareFile(string filename, string partaker)
         {
-            sharingService.ShareFile(filename, currentUser, partaker);
+            if (File.Exists(@"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename))
+            {
+                string[] dirs = Directory.GetDirectories(@"Data\FileSystem\Users");
+
+                if (dirs.Contains(@"Data\FileSystem\Users\" + partaker))
+                    sharingService.ShareFile(filename, currentUser, partaker);
+                else
+                    Console.WriteLine(partaker + " user does not exist");
+            }
         }
 
         //TEST for printing decrypted symmetric key from another user that shared a file with me
@@ -377,13 +384,39 @@ namespace EncryptedFileSystem
             rsa.XmlStringToPublicKey(currentUser.PublicXmlKey);
             rsa.XmlStringToPrivateKey(currentUser.PrivateXmlKey);
 
-            byte[] cipherKey = File.ReadAllBytes(@"Data\FileSystem\Users\Shared\EncryptedSymKeys\adele_symmetric_key");
+            byte[] cipherKey = File.ReadAllBytes(@"Data\FileSystem\Users\Shared\EncryptedSymKeys\zoran_symmetric_key");
 
             byte[] decryptedBytes = rsa.Decrypt(cipherKey);
 
             //Ako koristim Convert.ToBase64String NE DADNE ISTI STRING.
             //Ovako sa Unicode dobijem ZORANSYMMETRIC kako i treba biti
             Console.WriteLine(Encoding.Unicode.GetString(decryptedBytes));
+        }
+
+        //TEST - works in the current state
+        public void PrintDecryptedAES()
+        {
+            CryptoAlgorithms.RSA rsa = new CryptoAlgorithms.RSA();
+            rsa.XmlStringToPublicKey(currentUser.PublicXmlKey);
+            rsa.XmlStringToPrivateKey(currentUser.PrivateXmlKey);
+
+            byte[] cipherKey = File.ReadAllBytes(@"Data\FileSystem\Users\Shared\EncryptedSymKeys\zoran_aes_symmetric_key");
+
+            byte[] decryptedBytes = rsa.Decrypt(cipherKey);
+
+            //string originalStr = Convert.ToBase64String(decryptedBytes);
+            string originalStr = Encoding.Unicode.GetString(decryptedBytes);
+
+            //now return originalStr to bytes. but which format? if it cant decipher, try with base64 conversion
+
+            byte[] aes_iv = File.ReadAllBytes(@"Data\FileSystem\Users\Shared\EncryptedSymKeys\zoran_aes_iv");
+            byte[] aes_key = Convert.FromBase64String(originalStr);
+            byte[] cipher = File.ReadAllBytes(@"Data\FileSystem\Users\Shared\stars.jpg");
+            CryptoAlgorithms.AES aesWrapper = new CryptoAlgorithms.AES();
+
+            string decipher = aesWrapper.Decrypt(cipher, aes_key, aes_iv);
+
+            File.WriteAllBytes(@"Data\FileSystem\Users\Shared\stars_decrypted.jpg", Convert.FromBase64String(decipher));
         }
 
         //BUG CAN BE REPRODUCED HERE
@@ -408,6 +441,16 @@ namespace EncryptedFileSystem
             //-----------------------
 
             var decipher = rsa.Decrypt(cipherBytes);
+        }
+
+        //_______________________________________-
+        public void OpenSharedTest(string filename, string sharer)
+        {
+            sharingService.OpenSomeonesFile(filename, currentUser, sharer);
+        }
+        public void OpenPersonalSharedTest(string filename)
+        {
+            sharingService.OpenPersonalFile(filename, currentUser);
         }
     }
 }
