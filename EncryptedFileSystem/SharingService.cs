@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using System.Diagnostics;
+using System.Linq;
 
 namespace EncryptedFileSystem
 {
@@ -70,17 +71,21 @@ namespace EncryptedFileSystem
             CreateConnection(filename, sharer.Username, partaker);
         }
 
+        //check for file existance in FileSystem class
         public void OpenSharedFile(string filename, User currentUser)
         {
-            //1. check if user is a sharer or not
+            string[] individualConnections = File.ReadAllText(@"Data\FileSystem\Users\shared_connections.txt").Replace("\r", "").Split("\n");
+            string connection = individualConnections.Where(c => c.Contains(filename)).First();
+            string[] components = connection.Split(" ");
 
-            //2.1 if user is a sharer - open personal file
-
-            //2.2 if user is not a sharer - open someone else's file
+            if (currentUser.Username.Equals(components[1]))
+                OpenPersonalFile(filename, currentUser);
+            else
+                OpenSomeonesFile(filename, currentUser, components[1]);
         }
 
         //Add integrity check
-        public void OpenPersonalFile(string filename, User currentUser)
+        private void OpenPersonalFile(string filename, User currentUser)
         {
             string filePath = @"Data\FileSystem\Users\Shared\" + filename, processPath;
             CryptoAlgorithms.RC4 rc4 = new CryptoAlgorithms.RC4();
@@ -88,6 +93,15 @@ namespace EncryptedFileSystem
 
             //
             processPath = @"Data\FileSystem\Users\Shared\" + filename;
+
+            //Integrity check
+            string original = File.ReadAllText(processPath).Replace("\n", "").Replace("\r", "");
+            string backup = File.ReadAllText(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename).Replace("\n", "").Replace("\r", "");
+            if (!original.Equals(backup))
+            {
+                Console.WriteLine("File integrity compromised");
+                return;
+            }
 
             if (filename.Contains(".txt"))
             {
@@ -141,13 +155,7 @@ namespace EncryptedFileSystem
         }
 
         //Add integrity check
-        //MORAM MOCI MODIFIKOVATI FAJL KAD SE OTVORI. NE BRISATI GA NEGO GA KRIPTOVATI PONOVO
-        //Moze mijenjati samo tekstualne fajlove?
-
-        //NOTE: Sometimes and exception is thrown with non-text files: "Padding is invalid and cannot be removed."
-        //Reason: Unknown
-        //Current solution: Don't re-encrypt encrypted file. Decrypt it in the file copy and read if from there. Modifying not possible this way.
-        public void OpenSomeonesFile(string filename, User currentUser, string sharer)
+        private void OpenSomeonesFile(string filename, User currentUser, string sharer)
         {
             CryptoAlgorithms.RSA rsa = new CryptoAlgorithms.RSA();
             rsa.XmlStringToPublicKey(currentUser.PublicXmlKey);
@@ -157,6 +165,15 @@ namespace EncryptedFileSystem
 
             //
             processPath = @"Data\FileSystem\Users\Shared\" + filename;
+
+            //Integrity check
+            string original = File.ReadAllText(processPath).Replace("\n", "").Replace("\r", "");
+            string backup = File.ReadAllText(@"Data\FileSystem\Users\" + sharer + @"\PersonalFileHashes\" + filename).Replace("\n", "").Replace("\r", "");
+            if (!original.Equals(backup))
+            {
+                Console.WriteLine("File integrity compromised");
+                return;
+            }
 
             if (filename.Contains(".txt"))
                 extension = "_symmetric_key";
@@ -209,7 +226,7 @@ namespace EncryptedFileSystem
 
                 string newCipher = rc4_new.RC4algo(File.ReadAllText(@"Data\FileSystem\Users\Shared\" + filename), symmetricKey);
                 File.WriteAllText(@"Data\FileSystem\Users\Shared\" + filename, newCipher);
-                File.WriteAllText(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename, newCipher);
+                File.WriteAllText(@"Data\FileSystem\Users\" + sharer + @"\PersonalFileHashes\" + filename, newCipher);
             }
             //comment
             else
@@ -228,6 +245,38 @@ namespace EncryptedFileSystem
             }
 
             //File.Delete(@"Data\FileSystem\Users\Shared\tmp_" + filename);
+        }
+
+        public ICollection<string> GetAllSharedFiles()
+        {
+            DirectoryInfo dInfo = new DirectoryInfo(@"Data\FileSystem\Users\Shared");
+            FileInfo[] files = dInfo.GetFiles();
+
+            ICollection<string> fileNames = new List<string>();
+
+            foreach (FileInfo file in files)
+                fileNames.Add(file.Name);
+
+            return fileNames;
+        }
+
+        public ICollection<string> GetAllSharedFilesWithCurrentUser(User currentUser)
+        {
+            ICollection<string> files = new List<string>();
+            string[] individualConnections = File.ReadAllText(@"Data\FileSystem\Users\shared_connections.txt").Replace("\r", "").Split("\n");
+            
+            foreach (string connection in individualConnections)
+            {
+                if (connection.Length > 0)
+                {
+                    string[] components = connection.Split(" ");
+
+                    if (components[1].Equals(currentUser.Username) || components[2].Equals(currentUser.Username))
+                        files.Add(components[0]);
+                }
+            }
+
+            return files;
         }
     }
 }

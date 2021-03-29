@@ -1,11 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Security.Cryptography;
 using System.Linq;
 using System.Diagnostics;
-using System.Text.RegularExpressions;
+using System.Collections.Generic;
 
 namespace EncryptedFileSystem
 {
@@ -138,32 +137,6 @@ namespace EncryptedFileSystem
             }
         }
 
-        //TEST
-        public void PrintCurrentUser()
-        {
-            if (currentUser != null)
-            {
-                Console.WriteLine("USERNAME\n");
-                Console.WriteLine(currentUser.Username);
-                Console.WriteLine();
-
-                Console.WriteLine("PRIVATE XML KEY\n");
-                Console.WriteLine(currentUser.PrivateXmlKey);
-                Console.WriteLine();
-
-                Console.WriteLine("PUBLIC XML KEY\n");
-                Console.WriteLine(currentUser.PublicXmlKey);
-                Console.WriteLine();
-
-                Console.WriteLine("SYMMETRIC KEY\n");
-                Console.WriteLine(currentUser.SymetricKey);
-                Console.WriteLine();
-            }
-        }
-
-        //---------------------------------------------OPERATIONS-------------------------------------------------------------
-
-        //filename has an extension
         public void CreateFile(string filename, string content = "")
         {
             if (currentUser != null)
@@ -316,7 +289,6 @@ namespace EncryptedFileSystem
             File.WriteAllBytes(@"Data\FileSystem\Users\" + currentUser.Username + @"\PersonalFileHashes\" + filename, newEncryptedBytes);
         }
 
-        //WARNING: When creating a new file manualy, do not type .txt by hand in the file name
         public void UploadFile(string filename)
         {
             string filePath = @"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename;
@@ -327,8 +299,6 @@ namespace EncryptedFileSystem
                     CreateFile(filename, File.ReadAllText(filename));
                 else
                     CreateNonTextFile(filename, File.ReadAllBytes(filename));
-
-                //File.Delete(filename);
             }
             else
                 Console.WriteLine("File not found");
@@ -362,8 +332,6 @@ namespace EncryptedFileSystem
             }
         }
 
-        //__________________________________________________________________________________________________________________
-
         public void ShareFile(string filename, string partaker)
         {
             if (File.Exists(@"Data\FileSystem\Users\" + currentUser.Username + @"\" + filename))
@@ -375,6 +343,8 @@ namespace EncryptedFileSystem
                 else
                     Console.WriteLine(partaker + " user does not exist");
             }
+            else
+                Console.WriteLine("File not found");
         }
 
         //TEST for printing decrypted symmetric key from another user that shared a file with me
@@ -443,14 +413,36 @@ namespace EncryptedFileSystem
             var decipher = rsa.Decrypt(cipherBytes);
         }
 
-        //_______________________________________-
-        public void OpenSharedTest(string filename, string sharer)
+        public void OpenSharedFile(string filename)
         {
-            sharingService.OpenSomeonesFile(filename, currentUser, sharer);
+            if (File.Exists(@"Data\FileSystem\Users\Shared\" + filename))
+                sharingService.OpenSharedFile(filename, currentUser);
+            else
+                Console.WriteLine("File not found");
         }
-        public void OpenPersonalSharedTest(string filename)
+
+        public ICollection<string> GetAllSharedFiles()
         {
-            sharingService.OpenPersonalFile(filename, currentUser);
+            return sharingService.GetAllSharedFiles();
+        }
+
+        public ICollection<string> GetAllCurrentUserFiles()
+        {
+            DirectoryInfo dInfo = new DirectoryInfo(@"Data\FileSystem\Users\" + currentUser.Username);
+            FileInfo[] files = dInfo.GetFiles();
+
+            ICollection<string> fileNames = new List<string>();
+
+            foreach (FileInfo file in files)
+                if (!file.Name.Equals("password_hash"))
+                    fileNames.Add(file.Name);
+
+            return fileNames;
+        }
+
+        public ICollection<string> GetAllSharedFilesWithCurrentUser()
+        {
+            return sharingService.GetAllSharedFilesWithCurrentUser(currentUser);
         }
     }
 }

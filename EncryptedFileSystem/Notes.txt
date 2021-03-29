@@ -1,5 +1,0 @@
-﻿- za reviziju:
-
-	> public i private polja, propertiji
-	> using (var reader/writer = ...) { }
-	> File.ReadAll.. ili File.WriteAll.. umjesto StreamReader\StreamWriter
