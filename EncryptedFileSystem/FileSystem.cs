@@ -97,7 +97,7 @@ namespace EncryptedFileSystem
             }
         }
 
-        public void Login(string username, string password)
+        public bool Login(string username, string password)
         {
             string path = @"Data\FileSystem\Users\" + username;
 
@@ -130,11 +130,15 @@ namespace EncryptedFileSystem
                             AesSymetricKey = File.ReadAllBytes(path + @"\Keys\aes_symmetric_key"),
                             AesIv = File.ReadAllBytes(path + @"\Keys\aes_iv")
                         };
+
+                        return true;
                     }
                 }
                 else
                     Console.WriteLine("Passwords do not match");
             }
+
+            return false;
         }
 
         public void CreateFile(string filename, string content = "")
@@ -443,6 +447,11 @@ namespace EncryptedFileSystem
         public ICollection<string> GetAllSharedFilesWithCurrentUser()
         {
             return sharingService.GetAllSharedFilesWithCurrentUser(currentUser);
+        }
+
+        public void Logout()
+        {
+            currentUser = null;
         }
     }
 }

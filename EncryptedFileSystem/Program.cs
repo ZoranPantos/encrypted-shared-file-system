@@ -7,10 +7,13 @@ namespace EncryptedFileSystem
     {
         static void Main(string[] args)
         {
-            Console.ForegroundColor = ConsoleColor.White;
+            Terminal terminal = new Terminal(new CertificationAuthority());
 
-            CertificationAuthority ca = new CertificationAuthority();
-            FileSystem fs = new FileSystem(ca);
+            terminal.Run();
         }
     }
 }
+
+//TODO: Block users to open shared files which they don't share
+
+//NOTE: User cannot download shared file, only personal
