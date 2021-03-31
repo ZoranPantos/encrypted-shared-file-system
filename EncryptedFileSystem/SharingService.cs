@@ -30,58 +30,84 @@ namespace EncryptedFileSystem
             }
         }
 
+        //One user cannot open shared file between other users
+        private bool ValidateUser(string filename, User currentUser)
+        {
+            return GetAllSharedFilesWithCurrentUser(currentUser).Contains(filename);
+        }
+
         public void ShareFile(string filename, User sharer, string partaker)
         {
-            string symmetricKey;
-            CryptoAlgorithms.RSA rsa = new CryptoAlgorithms.RSA();
-            string partakerPublicKey = File.ReadAllText(@"Data\FileSystem\Users\" + partaker + @"\Keys\public_key.txt");
-            string partakerPrivateKey = File.ReadAllText(@"Data\FileSystem\Users\" + partaker + @"\Keys\private_key.txt");
-
-            rsa.XmlStringToPublicKey(partakerPublicKey);
-            rsa.XmlStringToPrivateKey(partakerPrivateKey);
-
-            if (filename.Contains(".txt"))
-                symmetricKey = File.ReadAllText(@"Data\FileSystem\Users\" + sharer.Username + @"\Keys\symmetric_key.txt");
-            else
-                symmetricKey = Convert.ToBase64String(File.ReadAllBytes(@"Data\FileSystem\Users\" + sharer.Username + @"\Keys\aes_symmetric_key"));
-                //symmetricKey = Encoding.Unicode.GetString(File.ReadAllBytes(@"Data\FileSystem\Users\" + sharer.Username + @"\Keys\aes_symmetric_key"));
-            
-            byte[] encryptedBytesSymmetricKey = rsa.Encrypt(symmetricKey);
-
-            if (filename.Contains(".txt"))
-                File.WriteAllBytes(@"Data\FileSystem\Users\Shared\EncryptedSymKeys\" + sharer.Username + "_symmetric_key", encryptedBytesSymmetricKey);
-            else
+            try
             {
-                File.WriteAllBytes(@"Data\FileSystem\Users\Shared\EncryptedSymKeys\" + sharer.Username + "_aes_symmetric_key", encryptedBytesSymmetricKey);
+                string symmetricKey;
+                CryptoAlgorithms.RSA rsa = new CryptoAlgorithms.RSA();
+                string partakerPublicKey = File.ReadAllText(@"Data\FileSystem\Users\" + partaker + @"\Keys\public_key.txt");
+                string partakerPrivateKey = File.ReadAllText(@"Data\FileSystem\Users\" + partaker + @"\Keys\private_key.txt");
 
-                //exception if file already exists - Fix it!
-                string _source = @"Data\FileSystem\Users\" + sharer.Username + @"\Keys\aes_iv";
-                string _destination = @"Data\FileSystem\Users\Shared\EncryptedSymKeys\" + sharer.Username + "_aes_iv";
+                rsa.XmlStringToPublicKey(partakerPublicKey);
+                rsa.XmlStringToPrivateKey(partakerPrivateKey);
 
-                if (!File.Exists(_destination))
-                    File.Copy(@"Data\FileSystem\Users\" + sharer.Username + @"\Keys\aes_iv", @"Data\FileSystem\Users\Shared\EncryptedSymKeys\" + sharer.Username + "_aes_iv");
+                if (filename.Contains(".txt"))
+                    symmetricKey = File.ReadAllText(@"Data\FileSystem\Users\" + sharer.Username + @"\Keys\symmetric_key.txt");
+                else
+                    symmetricKey = Convert.ToBase64String(File.ReadAllBytes(@"Data\FileSystem\Users\" + sharer.Username + @"\Keys\aes_symmetric_key"));
+                //symmetricKey = Encoding.Unicode.GetString(File.ReadAllBytes(@"Data\FileSystem\Users\" + sharer.Username + @"\Keys\aes_symmetric_key"));
+
+                byte[] encryptedBytesSymmetricKey = rsa.Encrypt(symmetricKey);
+
+                if (filename.Contains(".txt"))
+                    File.WriteAllBytes(@"Data\FileSystem\Users\Shared\EncryptedSymKeys\" + sharer.Username + "_symmetric_key", encryptedBytesSymmetricKey);
+                else
+                {
+                    File.WriteAllBytes(@"Data\FileSystem\Users\Shared\EncryptedSymKeys\" + sharer.Username + "_aes_symmetric_key", encryptedBytesSymmetricKey);
+
+                    //exception if file already exists - Fix it!
+                    string _source = @"Data\FileSystem\Users\" + sharer.Username + @"\Keys\aes_iv";
+                    string _destination = @"Data\FileSystem\Users\Shared\EncryptedSymKeys\" + sharer.Username + "_aes_iv";
+
+                    if (!File.Exists(_destination))
+                        File.Copy(@"Data\FileSystem\Users\" + sharer.Username + @"\Keys\aes_iv", @"Data\FileSystem\Users\Shared\EncryptedSymKeys\" + sharer.Username + "_aes_iv");
+                }
+
+                string source = @"Data\FileSystem\Users\" + sharer.Username + @"\" + filename;
+                string destination = @"Data\FileSystem\Users\Shared\" + filename;
+
+                if (!File.Exists(destination))
+                    File.Move(source, destination);
+
+                CreateConnection(filename, sharer.Username, partaker);
             }
-
-            string source = @"Data\FileSystem\Users\" + sharer.Username + @"\" + filename;
-            string destination = @"Data\FileSystem\Users\Shared\" + filename;
-
-            if (!File.Exists(destination))
-                File.Move(source, destination);
-
-            CreateConnection(filename, sharer.Username, partaker);
+            catch (Exception e)
+            {
+                Console.WriteLine("Exception happened:\n" + e.Message);
+            }
         }
 
         //check for file existance in FileSystem class
         public void OpenSharedFile(string filename, User currentUser)
         {
-            string[] individualConnections = File.ReadAllText(@"Data\FileSystem\Users\shared_connections.txt").Replace("\r", "").Split("\n");
-            string connection = individualConnections.Where(c => c.Contains(filename)).First();
-            string[] components = connection.Split(" ");
+            if (!ValidateUser(filename, currentUser))
+            {
+                Console.WriteLine("Not allowed");
+                return;
+            }
 
-            if (currentUser.Username.Equals(components[1]))
-                OpenPersonalFile(filename, currentUser);
-            else
-                OpenSomeonesFile(filename, currentUser, components[1]);
+            try
+            {
+                string[] individualConnections = File.ReadAllText(@"Data\FileSystem\Users\shared_connections.txt").Replace("\r", "").Split("\n");
+                string connection = individualConnections.Where(c => c.Contains(filename)).First();
+                string[] components = connection.Split(" ");
+
+                if (currentUser.Username.Equals(components[1]))
+                    OpenPersonalFile(filename, currentUser);
+                else
+                    OpenSomeonesFile(filename, currentUser, components[1]);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Exception happened:\n" + e.Message);
+            }
         }
 
         //Add integrity check
@@ -277,6 +303,35 @@ namespace EncryptedFileSystem
             }
 
             return files;
+        }
+
+        public void DeleteSharedFile(string filename, User currentUser)
+        {
+            if (!ValidateUser(filename, currentUser))
+            {
+                Console.WriteLine("Not allowed");
+                return;
+            }
+
+            try
+            {
+                File.Delete(@"Data\FileSystem\Users\Shared\" + filename);
+
+                //Find who is sharer and delete backup file
+                string data = File.ReadAllText(@"Data\FileSystem\Users\shared_connections.txt").Replace("\r", "");
+                string[] connections = data.Split("\n");
+
+                string connection = connections.Where(c => c.Contains(filename)).FirstOrDefault();
+                string sharer = connection.Split(" ")[1];
+
+                File.Delete(@"Data\FileSystem\Users\" + sharer + @"\PersonalFileHashes\" + filename);
+
+                DeleteConnection(filename);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Exception happened:\n" + e.Message);
+            }
         }
     }
 }

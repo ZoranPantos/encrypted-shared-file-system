@@ -15,12 +15,12 @@ namespace EncryptedFileSystem
             Console.ForegroundColor = ConsoleColor.White;
             string command = "";
 
-            while (!command.Equals("exit"))
+            while (true)
             {
                 Console.Write(loggedUser + "> ");
                 command = Console.ReadLine();
 
-                if (!command.Contains("login") && !loggedIn)
+                if (!command.Contains("login") && !loggedIn && !command.Contains("exit") && !command.Contains("register"))
                 {
                     Console.WriteLine("Login required");
                 }
@@ -37,7 +37,9 @@ namespace EncryptedFileSystem
                         {
                             loggedIn = true;
                             loggedUser = parameters[1];
+                            ClearTerminalAndPrintFiles();
                         }
+
                     }
                     //logout
                     else if (parameters[0].Equals("logout"))
@@ -45,6 +47,7 @@ namespace EncryptedFileSystem
                         fileSystem.Logout();
                         loggedIn = false;
                         loggedUser = "";
+                        Console.Clear();
                     }
                     //clear
                     else if (parameters[0].Equals("clear"))
@@ -91,6 +94,12 @@ namespace EncryptedFileSystem
                     {
                         fileSystem.Register(parameters[1], parameters[2]);
                     }
+                    //exit
+                    else if (parameters[0].Equals("exit"))
+                        break;
+                    //delete shared file.extension
+                    else if (parameters[0].Equals("delete") && parameters[1].Equals("shared") && parameters.Length == 3)
+                        fileSystem.DeleteSharedFile(parameters[2]);
                     else
                         Console.WriteLine("Invalid input");
                 }

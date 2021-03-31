@@ -453,5 +453,13 @@ namespace EncryptedFileSystem
         {
             currentUser = null;
         }
+
+        public void DeleteSharedFile(string filename)
+        {
+            if (File.Exists(@"Data\FileSystem\Users\Shared\" + filename))
+                sharingService.DeleteSharedFile(filename, currentUser);
+            else
+                Console.WriteLine("File not found");
+        }
     }
 }
