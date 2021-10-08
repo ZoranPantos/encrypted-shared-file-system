@@ -1,4 +1,4 @@
-# CryptographyProject
+# Cryptography project
 
 - application uses Windows NTFS to create its own file system
 - users can register, login and share files with other users
